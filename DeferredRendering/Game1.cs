@@ -6,19 +6,26 @@ namespace DeferredRendering
 {
     public class Game1 : Game
     {
-        private GraphicsDeviceManager _graphics;
+        public const string ContentFolder3D = "Models/";
+        public const string ContentFolderEffects = "Effects/";
+        public const string ContentFolderTextures = "Textures/";
+
+        private GraphicsDeviceManager _graphicsDeviceManager;
         private SpriteBatch _spriteBatch;
 
         public Game1()
         {
-            _graphics = new GraphicsDeviceManager(this);
+            _graphicsDeviceManager = new GraphicsDeviceManager(this);
             Content.RootDirectory = "Content";
             IsMouseVisible = true;
+            Window.AllowUserResizing = true;
         }
 
         protected override void Initialize()
         {
-            // TODO: Add your initialization logic here
+            _graphicsDeviceManager.PreferredBackBufferWidth = GraphicsAdapter.DefaultAdapter.CurrentDisplayMode.Width - 100;
+            _graphicsDeviceManager.PreferredBackBufferHeight = GraphicsAdapter.DefaultAdapter.CurrentDisplayMode.Height - 100;
+            _graphicsDeviceManager.ApplyChanges();
 
             base.Initialize();
         }
@@ -26,16 +33,16 @@ namespace DeferredRendering
         protected override void LoadContent()
         {
             _spriteBatch = new SpriteBatch(GraphicsDevice);
-
-            // TODO: use this.Content to load your game content here
         }
 
         protected override void Update(GameTime gameTime)
         {
-            if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || Keyboard.GetState().IsKeyDown(Keys.Escape))
-                Exit();
+            var keyboardState = Keyboard.GetState();
 
-            // TODO: Add your update logic here
+            if (keyboardState.IsKeyDown(Keys.Escape))
+            {
+                Exit();
+            }
 
             base.Update(gameTime);
         }
@@ -44,7 +51,6 @@ namespace DeferredRendering
         {
             GraphicsDevice.Clear(Color.CornflowerBlue);
 
-            // TODO: Add your drawing code here
 
             base.Draw(gameTime);
         }
