@@ -10,12 +10,17 @@ namespace DeferredRendering.Geometries.Textures
     public class QuadPrimitive
     {
         /// <summary>
-        ///     Create a textured quad.
+        ///     Create a textured quad with optional scaling.
         /// </summary>
         /// <param name="graphicsDevice">Used to initialize and control the presentation of the graphics device.</param>
-        public QuadPrimitive(GraphicsDevice graphicsDevice)
+        /// <param name="scale">Optional parameter to specify the scale of the quad. Defaults to (1f, 1f, 1f).</param>
+        public QuadPrimitive(GraphicsDevice graphicsDevice, Vector3 scale = default)
         {
-            CreateVertexBuffer(graphicsDevice);
+            // If scale is not specified, default to (1f, 1f, 1f)
+            if (scale == default)
+                scale = Vector3.One;
+
+            CreateVertexBuffer(graphicsDevice, scale);
             CreateIndexBuffer(graphicsDevice);
 
             Effect = new BasicEffect(graphicsDevice);
@@ -40,14 +45,12 @@ namespace DeferredRendering.Geometries.Textures
         public BasicEffect Effect { get; private set; }
 
         /// <summary>
-        ///     Create a vertex buffer for the figure with the given information.
+        /// Create a vertex buffer for the figure with the given information.
         /// </summary>
         /// <param name="graphicsDevice">Used to initialize and control the presentation of the graphics device.</param>
-        private void CreateVertexBuffer(GraphicsDevice graphicsDevice)
+        /// <param name="scale">Scale vector to apply to the vertices. Defaults to (1f, 1f, 1f).</param>
+        private void CreateVertexBuffer(GraphicsDevice graphicsDevice, Vector3 scale)
         {
-            // Set the position and texture coordinate for each vertex
-            // Normals point Up as the Quad is originally XZ aligned
-
             var textureCoordinateLowerLeft = Vector2.Zero;
             var textureCoordinateLowerRight = Vector2.UnitX;
             var textureCoordinateUpperLeft = Vector2.UnitY;
@@ -55,14 +58,10 @@ namespace DeferredRendering.Geometries.Textures
 
             var vertices = new[]
             {
-                // Possitive X, Possitive Z
-                new VertexPositionNormalTexture(Vector3.UnitX + Vector3.UnitZ, Vector3.Up, textureCoordinateUpperRight),
-                // Possitive X, Negative Z
-                new VertexPositionNormalTexture(Vector3.UnitX - Vector3.UnitZ, Vector3.Up, textureCoordinateLowerRight),
-                // Negative X, Possitive Z
-                new VertexPositionNormalTexture(Vector3.UnitZ - Vector3.UnitX, Vector3.Up, textureCoordinateUpperLeft),
-                // Negative X, Negative Z
-                new VertexPositionNormalTexture(-Vector3.UnitX - Vector3.UnitZ, Vector3.Up, textureCoordinateLowerLeft)
+                new VertexPositionNormalTexture((Vector3.UnitX + Vector3.UnitZ) * scale, Vector3.Up, textureCoordinateUpperRight),
+                new VertexPositionNormalTexture((Vector3.UnitX - Vector3.UnitZ) * scale, Vector3.Up, textureCoordinateLowerRight),
+                new VertexPositionNormalTexture((Vector3.UnitZ - Vector3.UnitX) * scale, Vector3.Up, textureCoordinateUpperLeft),
+                new VertexPositionNormalTexture((-Vector3.UnitX - Vector3.UnitZ) * scale, Vector3.Up, textureCoordinateLowerLeft)
             };
 
             Vertices = new VertexBuffer(graphicsDevice, VertexPositionNormalTexture.VertexDeclaration, vertices.Length,

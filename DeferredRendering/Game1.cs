@@ -67,8 +67,8 @@ namespace DeferredRendering
             
             _sphereWorld = Matrix.CreateScale(_sphereScale) * Matrix.CreateTranslation(_spherePosition);
             
-            _quadWorld = Matrix.CreateScale(_quadScale) * Matrix.CreateTranslation(_quadPosition);
-            _quad = new QuadPrimitive(GraphicsDevice);
+            _quadWorld = Matrix.CreateTranslation(_quadPosition);
+            _quad = new QuadPrimitive(GraphicsDevice, _quadScale);
 
             base.Initialize();
         }
