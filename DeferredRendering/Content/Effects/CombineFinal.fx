@@ -4,7 +4,7 @@
 #define PS_SHADERMODEL ps_3_0
 #else
 #define VS_SHADERMODEL vs_4_0_level_9_1
-#define PS_SHADERMODEL ps_4_0_level_9_1
+#define PS_SHADERMODEL ps_4_0_level_9_3
 #endif
 
 texture ColorMap;
@@ -51,11 +51,16 @@ VertexShaderOutput VertexShaderFunction(VertexShaderInput input)
 
 float4 PixelShaderFunction(VertexShaderOutput input) : COLOR0
 {
+    float4 lightingInfo = tex2D(lightSampler, input.TexCoord);
+
+    float3 diffuseLight = lightingInfo.rgb;
+    float specularLight = lightingInfo.a;
+
     float3 diffuseColor = tex2D(colorSampler, input.TexCoord).rgb;
-    float4 light = tex2D(lightSampler, input.TexCoord);
-    float3 diffuseLight = light.rgb;
-    float specularLight = light.a;
-    return float4((diffuseColor * diffuseLight + specularLight), 1);
+
+    float3 finalColor = diffuseColor * diffuseLight + specularLight;
+
+    return float4(finalColor, 1);
 }
 
 technique Technique1

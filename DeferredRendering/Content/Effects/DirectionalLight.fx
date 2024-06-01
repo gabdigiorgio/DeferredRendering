@@ -4,16 +4,17 @@
 #define PS_SHADERMODEL ps_3_0
 #else
 #define VS_SHADERMODEL vs_4_0_level_9_1
-#define PS_SHADERMODEL ps_4_0_level_9_1
+#define PS_SHADERMODEL ps_4_0_level_9_3
 #endif
 
-float3 EyePosition;
 float3 LightPosition;
 float3 LightColor;
 
-float4x4 InvertViewProjection; // this is used to compute the world-position
+// This is used to compute the world position
+float4x4 InverseViewProjection;
 
-texture ColorMap; // diffuse color, and specularIntensity in the alpha channel
+// Diffuse color, and specularIntensity in the alpha channel
+texture ColorMap; 
 sampler colorSampler = sampler_state
 {
     Texture = (ColorMap);
@@ -24,7 +25,8 @@ sampler colorSampler = sampler_state
     Mipfilter = LINEAR;
 };
 
-texture NormalMap; // normals, and specularPower in the alpha channel
+// Normals, and specularPower in the alpha channel
+texture NormalMap; 
 sampler normalSampler = sampler_state
 {
     Texture = (NormalMap);
@@ -35,7 +37,8 @@ sampler normalSampler = sampler_state
     Mipfilter = POINT;
 };
 
-texture DepthMap; // depth
+// Depth
+texture DepthMap; 
 sampler depthSampler = sampler_state
 {
     Texture = (DepthMap);
@@ -56,6 +59,7 @@ struct VertexShaderOutput
 {
     float4 Position : POSITION0;
     float2 TexCoord : TEXCOORD0;
+    float3 ViewDir : TEXCOORD1;
 };
 
 VertexShaderOutput VertexShaderFunction(VertexShaderInput input)
@@ -63,44 +67,41 @@ VertexShaderOutput VertexShaderFunction(VertexShaderInput input)
     VertexShaderOutput output;
     output.Position = float4(input.Position, 1);
     output.TexCoord = input.TexCoord;
+    output.ViewDir = normalize(mul(output.Position, InverseViewProjection).xyz);
     return output;
 }
 
 float4 PixelShaderFunction(VertexShaderOutput input) : COLOR0
 {
-    float4 normalData = tex2D(normalSampler,input.TexCoord);
-    float3 normal = 2.0f * normalData.xyz - 1.0f; // get normal into [-1,1] range
-    float specularPower = normalData.a * 255; // get specular power, and get it into [0,255] range
-    float specularIntensity = tex2D(colorSampler, input.TexCoord).a; // get specular intensity from the colorMap
-    float depthVal = tex2D(depthSampler, input.TexCoord).r; // read depth
+    float4 normalData = tex2D(normalSampler, input.TexCoord);
+    float3 normal = normalize(2.0f * normalData.xyz - 1.0f); // Get normal into [-1,1] range
+    float specularPower = normalData.a * 255; // Get specular power, and get it into [0,255] range
+    float specularIntensity = tex2D(colorSampler, input.TexCoord).a; // Get specular intensity from the colorMap
+    float depth = tex2D(depthSampler, input.TexCoord).r; // Read depth
     
-    // compute screen-space position
-    float4 position;
+    // Compute world position
+    float4 position = 1.0f;
     position.x = input.TexCoord.x * 2.0f - 1.0f;
     position.y = -(input.TexCoord.x * 2.0f - 1.0f);
-    position.z = depthVal;
-    position.w = 1.0f;
-    
-    //transform to world space
-    position = mul(position, InvertViewProjection);
+    position.z = depth;
+    position = mul(position, InverseViewProjection);
     position /= position.w;
     
     // Base vectors
     float3 lightDirection = normalize(LightPosition - position.xyz);
-    float3 viewDirection = normalize(EyePosition - position.xyz);
+    float3 viewDirection = normalize(input.ViewDir);
     float3 halfVector = normalize(lightDirection + viewDirection);
     
-    // compute diffuse light
+    // Compute diffuse light
     float NdotL = saturate(dot(normal, lightDirection));
-    float3 diffuseLight = LightColor.rgb * NdotL;
+    float3 diffuseLight = LightColor * NdotL;
     
+    // Compute specular light
     float NdotH = saturate(dot(normal, halfVector));
-    
-    //compute specular light
     float specularLight = specularIntensity * pow(NdotH, specularPower);
     
-    //output the two lights
-    return float4(diffuseLight.rgb, specularLight);
+    // Output diffuse and specular
+    return float4(diffuseLight, specularLight);
 }
 
 technique Technique1

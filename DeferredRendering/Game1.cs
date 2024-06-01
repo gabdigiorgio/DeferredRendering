@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using DeferredRendering.Cameras;
 using DeferredRendering.Geometries;
 using DeferredRendering.Geometries.Textures;
@@ -135,7 +136,7 @@ namespace DeferredRendering
             var keyboardState = Keyboard.GetState();
             
             SetGBuffer();
-            DrawQuad();
+            //DrawQuad();
             DrawSphere();
             ResolveGBuffer();
             DrawLights(gameTime);
@@ -195,9 +196,8 @@ namespace DeferredRendering
 
             _blinnPhongEffect.Parameters["LightPosition"].SetValue(lightPosition);
             _blinnPhongEffect.Parameters["LightColor"].SetValue(color.ToVector3());
-
-            _blinnPhongEffect.Parameters["EyePosition"].SetValue(_freeCamera.Position);
-            _blinnPhongEffect.Parameters["InvertViewProjection"].SetValue((_freeCamera.View * _freeCamera.Projection));
+            
+            _blinnPhongEffect.Parameters["InverseViewProjection"].SetValue(Matrix.Invert(_freeCamera.View * _freeCamera.Projection));
             
             _fullScreenQuad.Draw(_blinnPhongEffect);
         }
@@ -226,7 +226,7 @@ namespace DeferredRendering
             _gBufferEffect.Parameters["World"].SetValue(_quadWorld);
             _gBufferEffect.Parameters["View"].SetValue(_freeCamera.View);
             _gBufferEffect.Parameters["Projection"].SetValue(_freeCamera.Projection);
-            _gBufferEffect.Parameters["InverseTransposeWorld"].SetValue(Matrix.Transpose(Matrix.Invert(_quadWorld)));
+            _gBufferEffect.Parameters["InverseTransposeWorld"].SetValue(_quadWorld);
             _gBufferEffect.Parameters["Texture"].SetValue(_brickTexture);
             
             _quad.Draw(_gBufferEffect);

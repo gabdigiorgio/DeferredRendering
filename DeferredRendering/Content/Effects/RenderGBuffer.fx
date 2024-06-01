@@ -4,15 +4,15 @@
 #define PS_SHADERMODEL ps_3_0
 #else
 #define VS_SHADERMODEL vs_4_0_level_9_1
-#define PS_SHADERMODEL ps_4_0_level_9_1
+#define PS_SHADERMODEL ps_4_0_level_9_3
 #endif
 
 float4x4 World;
 float4x4 View;
 float4x4 Projection;
 float4x4 InverseTransposeWorld;
-float specularIntensity = 0.8f;
-float specularPower = 0.5f;
+float specularIntensity = 1.0f;
+float specularPower = 5.0f;
 
 texture Texture;
 sampler diffuseSampler = sampler_state
