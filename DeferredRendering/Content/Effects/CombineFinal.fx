@@ -7,7 +7,9 @@
 #define PS_SHADERMODEL ps_4_0_level_9_3
 #endif
 
-texture ColorMap;
+#include "ShaderUtilities.fx"
+
+Texture2D ColorMap;
 sampler colorSampler = sampler_state
 {
     Texture = (ColorMap);
@@ -18,10 +20,21 @@ sampler colorSampler = sampler_state
     Mipfilter = LINEAR;
 };
 
-texture LightMap;
-sampler lightSampler = sampler_state
+Texture2D DiffuseLightMap;
+sampler diffuseLightSampler = sampler_state
 {
-    Texture = (LightMap);
+    Texture = (DiffuseLightMap);
+    AddressU = CLAMP;
+    AddressV = CLAMP;
+    MagFilter = LINEAR;
+    MinFilter = LINEAR;
+    Mipfilter = LINEAR;
+};
+
+Texture2D SpecularLightMap;
+sampler specularLightSampler = sampler_state
+{
+    Texture = (SpecularLightMap);
     AddressU = CLAMP;
     AddressV = CLAMP;
     MagFilter = LINEAR;
@@ -44,30 +57,39 @@ struct VertexShaderOutput
 VertexShaderOutput VertexShaderFunction(VertexShaderInput input)
 {
     VertexShaderOutput output;
-    output.Position = float4(input.Position, 1);
+    output.Position = float4(input.Position, 1.0f);
     output.TexCoord = input.TexCoord;
     return output;
 }
 
 float4 PixelShaderFunction(VertexShaderOutput input) : COLOR0
 {
-    float4 lightingInfo = tex2D(lightSampler, input.TexCoord);
+    float4 diffuseColor = ColorMap.Sample(colorSampler, input.TexCoord);
+    float albedoColorProp = diffuseColor.a;
+    float materialType = decodeMattype(albedoColorProp);
+    float metalness = decodeMetalness(albedoColorProp);
+    
+    float f0 = lerp(0.44f, diffuseColor.g * 0.25f + 0.75f, metalness);
+    
+    float3 diffuseLight = DiffuseLightMap.Sample(diffuseLightSampler, input.TexCoord);
+    float3 specularLight = SpecularLightMap.Sample(specularLightSampler, input.TexCoord);
 
-    float3 diffuseLight = lightingInfo.rgb;
-    float specularLight = lightingInfo.a;
+    float3 plasticFinal = diffuseColor.rgb * (diffuseLight) + specularLight;
+                  
+    float3 metalFinal = specularLight * diffuseColor.rgb;
 
-    float3 diffuseColor = tex2D(colorSampler, input.TexCoord).rgb;
+    float3 finalValue = lerp(plasticFinal, metalFinal, metalness);
+    
+    float exposure = 20.0f;
 
-    float3 finalColor = diffuseColor * diffuseLight + specularLight;
-
-    return float4(finalColor, 1);
+    return float4(finalValue, 1.0f) * exposure;
 }
 
-technique Technique1
+technique Default
 {
-    pass Pass0
+    pass P0
     {
-        VertexShader = compile VS_SHADERMODEL VertexShaderFunction();
-        PixelShader = compile PS_SHADERMODEL PixelShaderFunction();
+        VertexShader = compile vs_5_0 VertexShaderFunction();
+        PixelShader = compile ps_5_0 PixelShaderFunction();
     }
 }

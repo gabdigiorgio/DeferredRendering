@@ -1,23 +1,23 @@
-﻿#if OPENGL
-#define SV_POSITION POSITION
-#define VS_SHADERMODEL vs_3_0
-#define PS_SHADERMODEL ps_3_0
-#else
-#define VS_SHADERMODEL vs_4_0_level_9_1
-#define PS_SHADERMODEL ps_4_0_level_9_3
-#endif
+﻿#include "ShaderUtilities.fx"
 
-float3 LightPosition;
+//color of the light 
 float3 LightColor;
 
-// This is used to compute the world position
-float4x4 InverseViewProjection;
+//position of the camera, for specular light
+float3 cameraPosition = float3(0, 0, 0);
+
+//this is used to compute the world-position
+float4x4 InvertViewProjection;
+
+float3 LightVector;
+//control the brightness of the light
+float lightIntensity = 11.0f;
 
 // Diffuse color, and specularIntensity in the alpha channel
-texture ColorMap; 
+Texture2D AlbedoMap;
 sampler colorSampler = sampler_state
 {
-    Texture = (ColorMap);
+    Texture = (AlbedoMap);
     AddressU = CLAMP;
     AddressV = CLAMP;
     MagFilter = LINEAR;
@@ -26,7 +26,7 @@ sampler colorSampler = sampler_state
 };
 
 // Normals, and specularPower in the alpha channel
-texture NormalMap; 
+Texture2D NormalMap;
 sampler normalSampler = sampler_state
 {
     Texture = (NormalMap);
@@ -62,53 +62,74 @@ struct VertexShaderOutput
     float3 ViewDir : TEXCOORD1;
 };
 
-VertexShaderOutput VertexShaderFunction(VertexShaderInput input)
+struct PixelShaderOutput
+{
+    float4 Diffuse : COLOR0;
+    float4 Specular : COLOR1;
+};
+
+VertexShaderOutput MainVS(VertexShaderInput input)
 {
     VertexShaderOutput output;
+    
     output.Position = float4(input.Position, 1);
     output.TexCoord = input.TexCoord;
-    output.ViewDir = normalize(mul(output.Position, InverseViewProjection).xyz);
+    output.ViewDir = normalize(mul(output.Position, InvertViewProjection).xyz);
+    
     return output;
 }
 
-float4 PixelShaderFunction(VertexShaderOutput input) : COLOR0
+PixelShaderOutput MainPS(VertexShaderOutput input) : COLOR0
 {
-    float4 normalData = tex2D(normalSampler, input.TexCoord);
-    float3 normal = normalize(2.0f * normalData.xyz - 1.0f); // Get normal into [-1,1] range
-    float specularPower = normalData.a * 255; // Get specular power, and get it into [0,255] range
-    float specularIntensity = tex2D(colorSampler, input.TexCoord).a; // Get specular intensity from the colorMap
-    float depth = tex2D(depthSampler, input.TexCoord).r; // Read depth
+    PixelShaderOutput output;
+    float2 texCoord = float2(input.TexCoord);
     
-    // Compute world position
-    float4 position = 1.0f;
-    position.x = input.TexCoord.x * 2.0f - 1.0f;
-    position.y = -(input.TexCoord.x * 2.0f - 1.0f);
-    position.z = depth;
-    position = mul(position, InverseViewProjection);
-    position /= position.w;
+    // get normal data from the NormalMap
+    float4 normalData = NormalMap.Sample(normalSampler, texCoord);
     
-    // Base vectors
-    float3 lightDirection = normalize(LightPosition - position.xyz);
-    float3 viewDirection = normalize(input.ViewDir);
-    float3 halfVector = normalize(lightDirection + viewDirection);
+    // tranform normal back into [-1,1] range
+    float3 normal = decode(normalData.xyz); //2.0f * normalData.xyz - 1.0f;
+
+    [branch]
+    if (normalData.x + normalData.y <= 0.001f) //Out of range
+    {
+        output.Diffuse = float4(0, 0, 0, 0);
+        output.Specular = float4(0, 0, 0, 0);
+        return output;
+    }
+    else
+    {
+        //get metalness
+        float roughness = normalData.a;
+        
+        //get specular intensity from the AlbedoMap
+        float4 color = AlbedoMap.Sample(colorSampler, texCoord);
+
+        float metalness = decodeMetalness(color.a);
     
-    // Compute diffuse light
-    float NdotL = saturate(dot(normal, lightDirection));
-    float3 diffuseLight = LightColor * NdotL;
+        float f0 = lerp(0.04f, color.g * 0.25 + 0.75, metalness);
+
+        float3 cameraDirection = -normalize(input.ViewDir);
+
+        float NdotL = saturate(dot(normal, -LightVector));
+
+        //float3 diffuse = DiffuseLambert(NdotL, LightColor, lightIntensity);
+        float3 diffuse = DiffuseOrenNayar(NdotL, normal, -LightVector, cameraDirection, lightIntensity, LightColor, roughness);
     
-    // Compute specular light
-    float NdotH = saturate(dot(normal, halfVector));
-    float specularLight = specularIntensity * pow(NdotH, specularPower);
-    
-    // Output diffuse and specular
-    return float4(diffuseLight, specularLight);
+        float3 specular = SpecularCookTorrance(NdotL, normal, -LightVector, cameraDirection, lightIntensity, LightColor, f0, roughness);
+
+        output.Diffuse = float4(diffuse, 0) * (1 - f0) * 0.01f;
+        output.Specular = float4(specular, 0) * 0.01f;
+
+        return output;
+    }
 }
 
-technique Technique1
+technique Default
 {
-    pass Pass0
+    pass P0
     {
-        VertexShader = compile VS_SHADERMODEL VertexShaderFunction();
-        PixelShader = compile PS_SHADERMODEL PixelShaderFunction();
+        VertexShader = compile vs_5_0 MainVS();
+        PixelShader = compile ps_5_0 MainPS();
     }
 }
